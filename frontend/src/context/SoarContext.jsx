@@ -35,13 +35,32 @@ export function SoarProvider({ children }) {
   };
 
   async function bootstrapAdmin() {
-    const result = await apiRequest('/auth/bootstrap-admin', {
-      method: 'POST',
-      body: JSON.stringify({ username: 'admin', email: 'admin@soar.local' }),
-    });
-    setToken(result.api_token);
-    setStatus('Admin token created for the SOAR console.');
-    return result.api_token;
+    try {
+      const result = await apiRequest('/auth/bootstrap-admin', {
+        method: 'POST',
+        body: JSON.stringify({ username: 'admin', email: 'admin@soar.local' }),
+      });
+      setToken(result.api_token);
+      setStatus('Admin token created for the SOAR console.');
+      return result.api_token;
+    } catch (error) {
+      if (error.message === 'Bootstrap already completed') {
+        try {
+          const devToken = await apiRequest('/auth/dev-token', {
+            method: 'POST',
+          });
+          setToken(devToken.api_token);
+          setStatus('Existing admin detected. Development token refreshed.');
+          return devToken.api_token;
+        } catch (devError) {
+          setStatus(`Bootstrap completed already, and dev token failed: ${devError.message}`);
+          return null;
+        }
+      }
+
+      setStatus(`Bootstrap failed: ${error.message}`);
+      return null;
+    }
   }
 
   async function ingestAlert(payload = defaultAlert, authToken = token) {
