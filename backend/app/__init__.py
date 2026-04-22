@@ -3,6 +3,7 @@ from flask_cors import CORS
 
 from .config import Config
 from .extensions import db, migrate
+from .routes_auth import auth_api
 from .routes import api
 
 
@@ -15,5 +16,6 @@ def create_app():
     migrate.init_app(app, db)
 
     app.register_blueprint(api, url_prefix="/api")
+    app.register_blueprint(auth_api, url_prefix="/api/auth")
 
     return app
