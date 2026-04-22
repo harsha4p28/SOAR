@@ -70,11 +70,38 @@ npm run dev
 
 The UI runs on `http://127.0.0.1:5173`.
 
+If port `5173` is already in use, Vite will automatically start on the next free port, such as `5174`.
+
 ## Initial usage flow
 
-1. Open the UI and click Bootstrap Admin.
-2. Save the returned bearer token securely.
-3. Use the token in the console and ingest alerts.
-4. Review created incidents and run playbooks.
-5. Open remediation guidance for root-cause fixes.
-6. Monitor SOC metrics in the dashboard panel.
+1. Start the backend and frontend.
+2. Open the UI and click Run Guided Demo, or follow the manual flow below.
+3. Save the returned bearer token securely.
+4. Use Ingest Alert to generate a sample web attack event.
+5. Open the incident Timeline or Incident Report to inspect the case.
+6. Run Execute Playbook to simulate automated response.
+7. Check Audit Trail, Approvals, and Integrations to confirm platform behavior.
+8. Review remediation guidance and SOC metrics in the dashboard panel.
+
+## Manual test flow
+
+If you want to verify the system step by step:
+
+1. Click Bootstrap Admin.
+2. Copy the token into the Bearer Token box if it is not already filled.
+3. Click Ingest Alert.
+4. Select the new incident and click Open Timeline.
+5. Add a note, mark the case In Review, and then Close Case.
+6. Click Execute Playbook and inspect the approval queue if the severity is high.
+7. Open Incident Report to see the complete case bundle.
+
+## Button reference
+
+- Bootstrap Admin: creates the first admin token for local testing.
+- Ingest Alert: sends a sample WAF-style attack into the backend.
+- Open Timeline: shows alert context, actions, and analyst notes.
+- Execute Playbook: runs response actions for the selected incident.
+- Incident Report: collects all case data in one exportable view.
+- Audit Trail: shows every recorded platform event.
+- Approvals: shows any pending or completed playbook approvals.
+- Integrations: lists connector registrations and health checks.

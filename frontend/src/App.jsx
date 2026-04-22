@@ -49,12 +49,34 @@ function App() {
       });
       setToken(result.api_token);
       setStatus('Bootstrap completed. Copy token to a secure vault.');
+      return result.api_token;
+    } catch (error) {
+      setStatus(error.message);
+      return null;
+    }
+  }
+
+  async function runGuidedDemo() {
+    try {
+      const currentToken = token || (await bootstrapAdmin());
+      if (currentToken && !token) {
+        setToken(currentToken);
+      }
+
+      await ingestAlert(currentToken);
+      await loadAlerts(currentToken);
+      await loadIncidents(currentToken);
+      await loadMetrics(currentToken);
+      await loadAuditEvents(currentToken);
+      await loadApprovals(currentToken);
+      await loadConnectors(currentToken);
+      setStatus('Guided demo finished. Open Incidents, Timeline, Audit Trail, or Report to inspect the case.');
     } catch (error) {
       setStatus(error.message);
     }
   }
 
-  async function ingestAlert() {
+  async function ingestAlert(authToken = token) {
     try {
       await apiRequest(
         '/alerts',
@@ -62,7 +84,7 @@ function App() {
           method: 'POST',
           body: JSON.stringify(alertInput),
         },
-        token
+        authToken
       );
       setStatus('Alert ingested and triaged.');
       await loadAlerts();
@@ -76,54 +98,54 @@ function App() {
     }
   }
 
-  async function loadAlerts() {
+  async function loadAlerts(authToken = token) {
     try {
-      const result = await apiRequest('/alerts', {}, token);
+      const result = await apiRequest('/alerts', {}, authToken);
       setAlerts(result);
     } catch (error) {
       setStatus(error.message);
     }
   }
 
-  async function loadIncidents() {
+  async function loadIncidents(authToken = token) {
     try {
-      const result = await apiRequest('/alerts/incidents', {}, token);
+      const result = await apiRequest('/alerts/incidents', {}, authToken);
       setIncidents(result);
     } catch (error) {
       setStatus(error.message);
     }
   }
 
-  async function loadMetrics() {
+  async function loadMetrics(authToken = token) {
     try {
-      const result = await apiRequest('/dashboard/metrics', {}, token);
+      const result = await apiRequest('/dashboard/metrics', {}, authToken);
       setMetrics(result);
     } catch (error) {
       setStatus(error.message);
     }
   }
   
-  async function loadAuditEvents() {
+  async function loadAuditEvents(authToken = token) {
     try {
-      const result = await apiRequest('/audit', {}, token);
+      const result = await apiRequest('/audit', {}, authToken);
       setAuditEvents(result);
     } catch (error) {
       setStatus(error.message);
     }
   }
 
-  async function loadApprovals() {
+  async function loadApprovals(authToken = token) {
     try {
-      const result = await apiRequest('/playbooks/approvals', {}, token);
+      const result = await apiRequest('/playbooks/approvals', {}, authToken);
       setApprovals(result);
     } catch (error) {
       setStatus(error.message);
     }
   }
 
-  async function loadConnectors() {
+  async function loadConnectors(authToken = token) {
     try {
-      const result = await apiRequest('/connectors', {}, token);
+      const result = await apiRequest('/connectors', {}, authToken);
       setConnectors(result);
     } catch (error) {
       setStatus(error.message);
@@ -271,6 +293,22 @@ function App() {
         <h1>Web Application SOAR Console</h1>
         <p>Vulnerability-aware detection, contextual response, and root-cause remediation.</p>
       </header>
+
+      <section className="card">
+        <h2>How to Use</h2>
+        <ol className="instructions">
+          <li>Click Bootstrap Admin to create the first API token.</li>
+          <li>Keep the token in the text area. The app uses it to call the backend.</li>
+          <li>Click Ingest Alert to create a sample web attack and auto-generate an incident.</li>
+          <li>Open the incident Timeline or Incident Report to review actions, notes, and approvals.</li>
+          <li>Execute Playbook to simulate response automation and check the Audit Trail.</li>
+        </ol>
+        <div className="inline-actions quick-actions">
+          <button onClick={runGuidedDemo}>Run Guided Demo</button>
+          <button onClick={loadAlerts}>Load Existing Alerts</button>
+          <button onClick={loadIncidents}>Load Existing Incidents</button>
+        </div>
+      </section>
 
       <section className="grid two-cols">
         <article className="card">
