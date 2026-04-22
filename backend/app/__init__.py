@@ -6,6 +6,7 @@ from .extensions import db, migrate
 from .routes_alerts import alerts_api
 from .routes_auth import auth_api
 from .routes_audit import audit_api
+from .routes_connectors import connectors_api
 from .routes_dashboard import dashboard_api
 from .routes_incidents import incidents_api
 from .routes_playbooks import playbooks_api
@@ -26,6 +27,7 @@ def create_app():
     app.register_blueprint(playbooks_api, url_prefix="/api/playbooks")
     app.register_blueprint(incidents_api, url_prefix="/api/incidents")
     app.register_blueprint(audit_api, url_prefix="/api/audit")
+    app.register_blueprint(connectors_api, url_prefix="/api/connectors")
     app.register_blueprint(dashboard_api, url_prefix="/api/dashboard")
 
     return app

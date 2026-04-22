@@ -25,6 +25,13 @@ function App() {
   const [noteText, setNoteText] = useState('');
   const [auditEvents, setAuditEvents] = useState([]);
   const [approvals, setApprovals] = useState([]);
+  const [connectors, setConnectors] = useState([]);
+  const [connectorInput, setConnectorInput] = useState({
+    name: 'Primary WAF',
+    category: 'WAF',
+    base_url: 'https://waf.local/api',
+    auth_type: 'token',
+  });
   const [alertInput, setAlertInput] = useState(defaultAlert);
   const [status, setStatus] = useState('Ready');
 
@@ -62,6 +69,7 @@ function App() {
       await loadMetrics();
       await loadAuditEvents();
       await loadApprovals();
+      await loadConnectors();
     } catch (error) {
       setStatus(error.message);
     }
@@ -112,6 +120,44 @@ function App() {
     }
   }
 
+  async function loadConnectors() {
+    try {
+      const result = await apiRequest('/connectors', {}, token);
+      setConnectors(result);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  async function createConnector() {
+    try {
+      await apiRequest(
+        '/connectors',
+        {
+          method: 'POST',
+          body: JSON.stringify(connectorInput),
+        },
+        token
+      );
+      setStatus('Connector registered.');
+      await loadConnectors();
+      await loadAuditEvents();
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  async function checkConnector(connectorId) {
+    try {
+      await apiRequest(`/connectors/${connectorId}/check`, { method: 'POST' }, token);
+      setStatus(`Connector #${connectorId} health checked.`);
+      await loadConnectors();
+      await loadAuditEvents();
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
   async function executePlaybook(incidentId) {
     try {
       await apiRequest(`/playbooks/execute/${incidentId}`, { method: 'POST' }, token);
@@ -120,6 +166,7 @@ function App() {
       await loadMetrics();
       await loadAuditEvents();
       await loadApprovals();
+      await loadConnectors();
     } catch (error) {
       setStatus(error.message);
     }
@@ -248,6 +295,44 @@ function App() {
         </article>
       </section>
 
+      <section className="card">
+        <h2>Connector Registry</h2>
+        <div className="grid two-cols">
+          <div>
+            <label>Name</label>
+            <input
+              value={connectorInput.name}
+              onChange={(event) => setConnectorInput({ ...connectorInput, name: event.target.value })}
+            />
+            <label>Category</label>
+            <select
+              value={connectorInput.category}
+              onChange={(event) => setConnectorInput({ ...connectorInput, category: event.target.value })}
+            >
+              <option>WAF</option>
+              <option>SIEM</option>
+              <option>EDR</option>
+              <option>IAM</option>
+              <option>EMAIL</option>
+              <option>CLOUD</option>
+            </select>
+          </div>
+          <div>
+            <label>Base URL</label>
+            <input
+              value={connectorInput.base_url}
+              onChange={(event) => setConnectorInput({ ...connectorInput, base_url: event.target.value })}
+            />
+            <label>Auth Type</label>
+            <input
+              value={connectorInput.auth_type}
+              onChange={(event) => setConnectorInput({ ...connectorInput, auth_type: event.target.value })}
+            />
+            <button onClick={createConnector}>Register Connector</button>
+          </div>
+        </div>
+      </section>
+
       <section className="grid three-cols">
         <article className="card">
           <h2>Alerts</h2>
@@ -283,6 +368,21 @@ function App() {
                 <div className="inline-actions">
                   <button onClick={() => decideApproval(approval.id, 'approved')}>Approve</button>
                   <button onClick={() => decideApproval(approval.id, 'rejected')}>Reject</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="card">
+          <h2>Integrations</h2>
+          <button onClick={loadConnectors}>Refresh Connectors</button>
+          <ul className="list">
+            {connectors.map((connector) => (
+              <li key={connector.id}>
+                <strong>{connector.name}</strong> {connector.category} ({connector.status})
+                <div className="inline-actions">
+                  <button onClick={() => checkConnector(connector.id)}>Check Health</button>
                 </div>
               </li>
             ))}

@@ -99,3 +99,15 @@ class ActionApproval(BaseModel):
 
     incident = db.relationship("Incident", backref="approvals")
     requested_by = db.relationship("User", foreign_keys=[requested_by_id], backref="requested_approvals")
+
+
+class IntegrationConnector(BaseModel):
+    __tablename__ = "integration_connectors"
+
+    name = db.Column(db.String(120), nullable=False, unique=True)
+    category = db.Column(db.String(80), nullable=False)
+    base_url = db.Column(db.String(255), nullable=False)
+    auth_type = db.Column(db.String(60), nullable=False, default="token")
+    status = db.Column(db.String(30), nullable=False, default="healthy")
+    last_checked_at = db.Column(db.DateTime, nullable=True)
+    config = db.Column(db.JSON, nullable=False, default=dict)
