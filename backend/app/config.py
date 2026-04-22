@@ -7,3 +7,4 @@ class Config:
         "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/soar_db"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    CREATE_TABLES_ON_STARTUP = os.getenv("CREATE_TABLES_ON_STARTUP", "true").lower() == "true"

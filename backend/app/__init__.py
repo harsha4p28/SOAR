@@ -30,4 +30,8 @@ def create_app():
     app.register_blueprint(connectors_api, url_prefix="/api/connectors")
     app.register_blueprint(dashboard_api, url_prefix="/api/dashboard")
 
+    if app.config.get("CREATE_TABLES_ON_STARTUP", False):
+        with app.app_context():
+            db.create_all()
+
     return app
