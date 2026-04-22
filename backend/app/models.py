@@ -86,3 +86,16 @@ class AuditEvent(BaseModel):
     details = db.Column(db.JSON, nullable=False, default=dict)
 
     actor = db.relationship("User", backref="audit_events")
+
+
+class ActionApproval(BaseModel):
+    __tablename__ = "action_approvals"
+
+    incident_id = db.Column(db.Integer, db.ForeignKey("incidents.id"), nullable=False)
+    requested_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    approval_type = db.Column(db.String(60), nullable=False)
+    approval_status = db.Column(db.String(30), nullable=False, default="pending")
+    details = db.Column(db.JSON, nullable=False, default=dict)
+
+    incident = db.relationship("Incident", backref="approvals")
+    requested_by = db.relationship("User", foreign_keys=[requested_by_id], backref="requested_approvals")

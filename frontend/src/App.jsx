@@ -24,6 +24,7 @@ function App() {
   const [timeline, setTimeline] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [auditEvents, setAuditEvents] = useState([]);
+  const [approvals, setApprovals] = useState([]);
   const [alertInput, setAlertInput] = useState(defaultAlert);
   const [status, setStatus] = useState('Ready');
 
@@ -59,6 +60,8 @@ function App() {
       await loadAlerts();
       await loadIncidents();
       await loadMetrics();
+      await loadAuditEvents();
+      await loadApprovals();
     } catch (error) {
       setStatus(error.message);
     }
@@ -100,6 +103,15 @@ function App() {
     }
   }
 
+  async function loadApprovals() {
+    try {
+      const result = await apiRequest('/playbooks/approvals', {}, token);
+      setApprovals(result);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
   async function executePlaybook(incidentId) {
     try {
       await apiRequest(`/playbooks/execute/${incidentId}`, { method: 'POST' }, token);
@@ -107,6 +119,7 @@ function App() {
       await loadIncidents();
       await loadMetrics();
       await loadAuditEvents();
+      await loadApprovals();
     } catch (error) {
       setStatus(error.message);
     }
@@ -168,6 +181,25 @@ function App() {
       await loadIncidents();
       await openTimeline(incidentId);
       await loadMetrics();
+      await loadAuditEvents();
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  async function decideApproval(approvalId, decision) {
+    try {
+      await apiRequest(
+        `/playbooks/approvals/${approvalId}/decision`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ decision }),
+        },
+        token
+      );
+      setStatus(`Approval #${approvalId} ${decision}.`);
+      await loadApprovals();
+      await loadAuditEvents();
     } catch (error) {
       setStatus(error.message);
     }
@@ -236,6 +268,22 @@ function App() {
             {auditEvents.map((event) => (
               <li key={event.id}>
                 <strong>{event.event_type}</strong> {event.entity_type} #{event.entity_id ?? '-'} by {event.actor || 'system'}
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="card">
+          <h2>Approvals</h2>
+          <button onClick={loadApprovals}>Refresh Approvals</button>
+          <ul className="list">
+            {approvals.map((approval) => (
+              <li key={approval.id}>
+                <strong>{approval.approval_type}</strong> incident #{approval.incident_id} ({approval.approval_status})
+                <div className="inline-actions">
+                  <button onClick={() => decideApproval(approval.id, 'approved')}>Approve</button>
+                  <button onClick={() => decideApproval(approval.id, 'rejected')}>Reject</button>
+                </div>
               </li>
             ))}
           </ul>
