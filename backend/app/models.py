@@ -52,3 +52,14 @@ class Incident(BaseModel):
 
     alert = db.relationship("Alert", backref="incidents")
     owner = db.relationship("User", backref="incidents")
+
+
+class ResponseAction(BaseModel):
+    __tablename__ = "response_actions"
+
+    incident_id = db.Column(db.Integer, db.ForeignKey("incidents.id"), nullable=False)
+    action_type = db.Column(db.String(60), nullable=False)
+    action_status = db.Column(db.String(30), nullable=False, default="pending")
+    details = db.Column(db.JSON, nullable=False, default=dict)
+
+    incident = db.relationship("Incident", backref="response_actions")
