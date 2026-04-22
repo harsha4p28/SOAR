@@ -1,4 +1,4 @@
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from .auth import require_api_key
 from .extensions import db
@@ -77,3 +77,23 @@ def rotate_token():
     db.session.commit()
 
     return jsonify({"message": "Token rotated", "api_token": raw_token})
+
+
+@auth_api.post("/dev-token")
+def issue_dev_token():
+    if not current_app.config.get("ALLOW_DEV_TOKEN_ISSUE", False):
+        return jsonify({"error": "Dev token issuance disabled"}), 403
+
+    if request.remote_addr not in {"127.0.0.1", "::1", None}:
+        return jsonify({"error": "Only localhost is allowed"}), 403
+
+    user = User.query.filter_by(role="admin", is_active=True).first()
+    if not user:
+        return jsonify({"error": "No admin user found"}), 404
+
+    raw_token = generate_api_token()
+    user.api_token_hash = hash_api_token(raw_token)
+    record_event("dev_token_issued", "user", user.id, {"username": user.username})
+    db.session.commit()
+
+    return jsonify({"message": "Development token issued", "api_token": raw_token})

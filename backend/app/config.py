@@ -13,3 +13,4 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CREATE_TABLES_ON_STARTUP = os.getenv("CREATE_TABLES_ON_STARTUP", "true").lower() == "true"
+    ALLOW_DEV_TOKEN_ISSUE = os.getenv("ALLOW_DEV_TOKEN_ISSUE", "true").lower() == "true"
