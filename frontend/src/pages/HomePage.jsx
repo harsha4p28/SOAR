@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSoar } from '../context/SoarContext';
+import { focusOutput } from '../utils/focusOutput';
 
 function HomePage() {
   const {
@@ -31,9 +32,20 @@ function HomePage() {
         loadConnectors(currentToken),
       ]);
       setStatus('Guided demo completed. Open Dashboard and Incidents for live data.');
+      focusOutput('home-access-output');
     } catch (error) {
       setStatus(error.message);
     }
+  }
+
+  async function handleBootstrapAdmin() {
+    await bootstrapAdmin();
+    focusOutput('home-access-output');
+  }
+
+  async function handleIngestAlert() {
+    await ingestAlert(alertInput);
+    focusOutput('home-access-output');
   }
 
   return (
@@ -46,14 +58,14 @@ function HomePage() {
           <li>Navigate to Dashboard and Incidents to monitor live results.</li>
         </ol>
         <div className="inline-actions quick-actions">
-          <button onClick={bootstrapAdmin}>Bootstrap Admin</button>
+          <button onClick={handleBootstrapAdmin}>Bootstrap Admin</button>
           <button onClick={runGuidedDemo}>Run Guided Demo</button>
           <button onClick={() => setToken('')}>Clear Token</button>
         </div>
       </section>
 
       <section className="grid two-cols">
-        <article className="card">
+        <article className="card focus-target" id="home-access-output" tabIndex="-1">
           <h2>Access</h2>
           <label>Bearer Token</label>
           <textarea
@@ -83,7 +95,7 @@ function HomePage() {
             value={alertInput.endpoint}
             onChange={(event) => setAlertInput({ ...alertInput, endpoint: event.target.value })}
           />
-          <button onClick={() => ingestAlert(alertInput)}>Ingest Alert</button>
+          <button onClick={handleIngestAlert}>Ingest Alert</button>
         </article>
       </section>
     </>

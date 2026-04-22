@@ -14,6 +14,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useSoar } from '../context/SoarContext';
+import { focusOutput } from '../utils/focusOutput';
 
 function DashboardPage() {
   const { loadMetrics, loadOverview, loadTimeseries, setStatus } = useSoar();
@@ -32,6 +33,7 @@ function DashboardPage() {
       setOverview(overviewData);
       setTimeseries(timeseriesData.points || []);
       setStatus('Dashboard refreshed with latest SOAR telemetry.');
+      focusOutput('dashboard-kpi-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -49,7 +51,7 @@ function DashboardPage() {
 
   return (
     <>
-      <section className="card">
+      <section className="card focus-target" id="dashboard-kpi-output" tabIndex="-1">
         <h2>SOAR Metrics Dashboard</h2>
         <button onClick={refreshDashboard}>Refresh Dashboard</button>
         {overview ? (

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSoar } from '../context/SoarContext';
+import { focusOutput } from '../utils/focusOutput';
 
 function GovernancePage() {
   const { loadAuditEvents, loadApprovals, decideApproval, setStatus } = useSoar();
@@ -14,6 +15,7 @@ function GovernancePage() {
       ]);
       setAuditEvents(auditData);
       setApprovals(approvalData);
+      focusOutput('governance-approvals-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -27,6 +29,7 @@ function GovernancePage() {
     try {
       await decideApproval(approvalId, decision);
       await refreshGovernance();
+      focusOutput('governance-audit-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -34,7 +37,7 @@ function GovernancePage() {
 
   return (
     <section className="grid two-cols">
-      <article className="card">
+      <article className="card focus-target" id="governance-approvals-output" tabIndex="-1">
         <h2>Approval Queue</h2>
         <button onClick={refreshGovernance}>Refresh</button>
         <ul className="list">
@@ -50,7 +53,7 @@ function GovernancePage() {
         </ul>
       </article>
 
-      <article className="card">
+      <article className="card focus-target" id="governance-audit-output" tabIndex="-1">
         <h2>Audit Trail</h2>
         <button onClick={refreshGovernance}>Refresh</button>
         <ul className="list">

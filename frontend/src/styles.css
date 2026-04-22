@@ -92,6 +92,11 @@ body {
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
 }
 
+.focus-target:focus {
+  outline: 2px solid #0ea5e9;
+  outline-offset: 2px;
+}
+
 h2,
 h3 {
   margin-top: 0;

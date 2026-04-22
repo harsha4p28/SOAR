@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSoar } from '../context/SoarContext';
+import { focusOutput } from '../utils/focusOutput';
 
 const defaultLabPayload = {
   target: 'http://127.0.0.1:5055',
@@ -21,6 +22,7 @@ function LabPage() {
       const data = await response.json();
       setResult(data);
       setStatus(`Demo attack ${payload.attack} executed against vulnerable app.`);
+      focusOutput('lab-response-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -48,7 +50,7 @@ function LabPage() {
         <button onClick={triggerAttack}>Trigger Attack</button>
       </article>
 
-      <article className="card">
+      <article className="card focus-target" id="lab-response-output" tabIndex="-1">
         <h2>Last Lab Response</h2>
         {result ? <pre className="json-box">{JSON.stringify(result, null, 2)}</pre> : <p>No attack triggered yet.</p>}
       </article>

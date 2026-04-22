@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSoar } from '../context/SoarContext';
+import { focusOutput } from '../utils/focusOutput';
 
 function IncidentsPage() {
   const {
@@ -44,6 +45,7 @@ function IncidentsPage() {
       setTimeline(timelineData);
       setReport(reportData);
       setRemediation(remediationData);
+      focusOutput('incidents-timeline-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -54,6 +56,7 @@ function IncidentsPage() {
       await executePlaybook(incidentId);
       await refreshIncidents();
       await openCase(incidentId);
+      focusOutput('incidents-report-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -68,6 +71,7 @@ function IncidentsPage() {
       await addNote(selectedIncidentId, noteText);
       setNoteText('');
       await openCase(selectedIncidentId);
+      focusOutput('incidents-timeline-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -82,6 +86,7 @@ function IncidentsPage() {
       await updateIncidentStatus(selectedIncidentId, nextStatus);
       await refreshIncidents();
       await openCase(selectedIncidentId);
+      focusOutput('incidents-report-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -124,7 +129,7 @@ function IncidentsPage() {
       </section>
 
       <section className="grid two-cols">
-        <article className="card">
+        <article className="card focus-target" id="incidents-timeline-output" tabIndex="-1">
           <h2>Timeline</h2>
           {timeline ? (
             <div>
@@ -152,7 +157,7 @@ function IncidentsPage() {
           )}
         </article>
 
-        <article className="card">
+        <article className="card focus-target" id="incidents-report-output" tabIndex="-1">
           <h2>Incident Report + Remediation</h2>
           {report ? (
             <div>

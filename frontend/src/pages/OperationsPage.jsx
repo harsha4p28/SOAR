@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSoar } from '../context/SoarContext';
+import { focusOutput } from '../utils/focusOutput';
 
 function OperationsPage() {
   const {
@@ -27,6 +28,7 @@ function OperationsPage() {
       const [alertData, connectorData] = await Promise.all([loadAlerts(), loadConnectors()]);
       setAlerts(alertData);
       setConnectors(connectorData);
+      focusOutput('operations-alert-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -40,6 +42,7 @@ function OperationsPage() {
     try {
       await createConnector(connectorInput);
       await refreshOperations();
+      focusOutput('operations-connector-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -49,6 +52,7 @@ function OperationsPage() {
     try {
       await ingestAlert(alertInput);
       await refreshOperations();
+      focusOutput('operations-alert-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -59,6 +63,7 @@ function OperationsPage() {
       await checkConnector(connectorId);
       await refreshOperations();
       setStatus(`Connector #${connectorId} health checked.`);
+      focusOutput('operations-connector-output');
     } catch (error) {
       setStatus(error.message);
     }
@@ -118,7 +123,7 @@ function OperationsPage() {
       </section>
 
       <section className="grid two-cols">
-        <article className="card">
+        <article className="card focus-target" id="operations-alert-output" tabIndex="-1">
           <h2>Recent Alerts</h2>
           <button onClick={refreshOperations}>Refresh</button>
           <ul className="list">
@@ -130,7 +135,7 @@ function OperationsPage() {
           </ul>
         </article>
 
-        <article className="card">
+        <article className="card focus-target" id="operations-connector-output" tabIndex="-1">
           <h2>Integration Health</h2>
           <button onClick={refreshOperations}>Refresh</button>
           <ul className="list">
