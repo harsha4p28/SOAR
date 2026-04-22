@@ -147,3 +147,61 @@ def update_status(incident_id):
     record_event("incident_status_updated", "incident", incident.id, {"status": status})
     db.session.commit()
     return jsonify({"message": "Incident status updated", "incident_id": incident.id, "status": incident.status})
+
+
+@incidents_api.get("/<int:incident_id>/report")
+@require_api_key(roles=["analyst", "admin"])
+def get_incident_report(incident_id):
+    incident = Incident.query.get_or_404(incident_id)
+    return jsonify(
+        {
+            "incident": {
+                "id": incident.id,
+                "title": incident.title,
+                "attack_type": incident.attack_type,
+                "severity": incident.severity,
+                "status": incident.status,
+                "owner": incident.owner.username if incident.owner else None,
+                "created_at": incident.created_at.isoformat(),
+                "updated_at": incident.updated_at.isoformat(),
+            },
+            "alert": {
+                "id": incident.alert.id,
+                "source": incident.alert.source,
+                "source_ip": incident.alert.source_ip,
+                "endpoint": incident.alert.endpoint,
+                "exploitability_score": incident.alert.exploitability_score,
+                "confidence_score": incident.alert.confidence_score,
+            },
+            "actions": [
+                {
+                    "id": action.id,
+                    "action_type": action.action_type,
+                    "action_status": action.action_status,
+                    "details": action.details,
+                    "created_at": action.created_at.isoformat(),
+                }
+                for action in incident.response_actions
+            ],
+            "notes": [
+                {
+                    "id": note.id,
+                    "note": note.note,
+                    "author": note.author.username,
+                    "created_at": note.created_at.isoformat(),
+                }
+                for note in incident.notes
+            ],
+            "approvals": [
+                {
+                    "id": approval.id,
+                    "approval_type": approval.approval_type,
+                    "approval_status": approval.approval_status,
+                    "requested_by": approval.requested_by.username,
+                    "created_at": approval.created_at.isoformat(),
+                }
+                for approval in incident.approvals
+            ],
+            "remediation": remediation_plan_for(incident.attack_type),
+        }
+    )

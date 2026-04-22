@@ -22,6 +22,7 @@ function App() {
   const [metrics, setMetrics] = useState(null);
   const [remediation, setRemediation] = useState(null);
   const [timeline, setTimeline] = useState(null);
+  const [report, setReport] = useState(null);
   const [noteText, setNoteText] = useState('');
   const [auditEvents, setAuditEvents] = useState([]);
   const [approvals, setApprovals] = useState([]);
@@ -176,6 +177,18 @@ function App() {
     try {
       const result = await apiRequest(`/incidents/${incidentId}/remediation-plan`, {}, token);
       setRemediation(result);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  async function loadReport(incidentId) {
+    try {
+      const result = await apiRequest(`/incidents/${incidentId}/report`, {}, token);
+      setReport(result);
+      setTimeline(result);
+      setRemediation(result.remediation);
+      await loadAuditEvents();
     } catch (error) {
       setStatus(error.message);
     }
@@ -401,6 +414,7 @@ function App() {
                   <button onClick={() => openTimeline(incident.id)}>Open Timeline</button>
                   <button onClick={() => executePlaybook(incident.id)}>Execute Playbook</button>
                   <button onClick={() => showRemediation(incident.id)}>Remediation</button>
+                  <button onClick={() => loadReport(incident.id)}>Incident Report</button>
                 </div>
               </li>
             ))}
@@ -422,6 +436,31 @@ function App() {
             <p>No metrics loaded.</p>
           )}
         </article>
+      </section>
+
+      <section className="card">
+        <h2>Incident Report</h2>
+        {report ? (
+          <div>
+            <p>
+              Report for case #{report.incident.id}: {report.incident.title}
+            </p>
+            <p>
+              Severity: {report.incident.severity} | Status: {report.incident.status} | Owner:{' '}
+              {report.incident.owner || 'unassigned'}
+            </p>
+            <h3>Approvals</h3>
+            <ul className="list">
+              {report.approvals.map((approval) => (
+                <li key={approval.id}>
+                  {approval.approval_type} - {approval.approval_status}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p>Select an incident and click Incident Report.</p>
+        )}
       </section>
 
       <section className="card">
