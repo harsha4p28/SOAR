@@ -63,3 +63,14 @@ class ResponseAction(BaseModel):
     details = db.Column(db.JSON, nullable=False, default=dict)
 
     incident = db.relationship("Incident", backref="response_actions")
+
+
+class IncidentNote(BaseModel):
+    __tablename__ = "incident_notes"
+
+    incident_id = db.Column(db.Integer, db.ForeignKey("incidents.id"), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    note = db.Column(db.Text, nullable=False)
+
+    incident = db.relationship("Incident", backref="notes")
+    author = db.relationship("User", backref="incident_notes")

@@ -21,6 +21,8 @@ function App() {
   const [incidents, setIncidents] = useState([]);
   const [metrics, setMetrics] = useState(null);
   const [remediation, setRemediation] = useState(null);
+  const [timeline, setTimeline] = useState(null);
+  const [noteText, setNoteText] = useState('');
   const [alertInput, setAlertInput] = useState(defaultAlert);
   const [status, setStatus] = useState('Ready');
 
@@ -108,6 +110,57 @@ function App() {
     }
   }
 
+  async function openTimeline(incidentId) {
+    try {
+      const result = await apiRequest(`/incidents/${incidentId}/timeline`, {}, token);
+      setTimeline(result);
+      setRemediation(null);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  async function addNote(incidentId) {
+    try {
+      if (!noteText.trim()) {
+        setStatus('Enter a case note first.');
+        return;
+      }
+      await apiRequest(
+        `/incidents/${incidentId}/notes`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ note: noteText }),
+        },
+        token
+      );
+      setNoteText('');
+      setStatus(`Note added to incident #${incidentId}.`);
+      await openTimeline(incidentId);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  async function updateIncidentStatus(incidentId, nextStatus) {
+    try {
+      await apiRequest(
+        `/incidents/${incidentId}/status`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ status: nextStatus }),
+        },
+        token
+      );
+      setStatus(`Incident #${incidentId} moved to ${nextStatus}.`);
+      await loadIncidents();
+      await openTimeline(incidentId);
+      await loadMetrics();
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
   return (
     <div className="container">
       <header className="hero">
@@ -173,6 +226,7 @@ function App() {
               <li key={incident.id}>
                 <strong>{incident.attack_type}</strong> {incident.severity} ({incident.status})
                 <div className="inline-actions">
+                  <button onClick={() => openTimeline(incident.id)}>Open Timeline</button>
                   <button onClick={() => executePlaybook(incident.id)}>Execute Playbook</button>
                   <button onClick={() => showRemediation(incident.id)}>Remediation</button>
                 </div>
@@ -196,6 +250,60 @@ function App() {
             <p>No metrics loaded.</p>
           )}
         </article>
+      </section>
+
+      <section className="card">
+        <h2>Case Timeline</h2>
+        {timeline ? (
+          <div>
+            <p>
+              Case #{timeline.incident.id}: {timeline.incident.title}
+            </p>
+            <p>
+              Owner: {timeline.incident.owner || 'unassigned'} | Status: {timeline.incident.status}
+            </p>
+            <div className="grid two-cols">
+              <div>
+                <h3>Alert Context</h3>
+                <p>Endpoint: {timeline.alert.endpoint}</p>
+                <p>Source: {timeline.alert.source}</p>
+                <p>Exploitability: {timeline.alert.exploitability_score}</p>
+              </div>
+              <div>
+                <h3>Case Controls</h3>
+                <textarea
+                  rows="4"
+                  value={noteText}
+                  onChange={(event) => setNoteText(event.target.value)}
+                  placeholder="Add analyst note"
+                />
+                <div className="inline-actions">
+                  <button onClick={() => addNote(timeline.incident.id)}>Add Note</button>
+                  <button onClick={() => updateIncidentStatus(timeline.incident.id, 'in_review')}>Mark In Review</button>
+                  <button onClick={() => updateIncidentStatus(timeline.incident.id, 'closed')}>Close Case</button>
+                </div>
+              </div>
+            </div>
+            <h3>Actions</h3>
+            <ul className="list">
+              {timeline.actions.map((action) => (
+                <li key={action.id}>
+                  {action.action_type} - {action.action_status}
+                </li>
+              ))}
+            </ul>
+            <h3>Notes</h3>
+            <ul className="list">
+              {timeline.notes.map((note) => (
+                <li key={note.id}>
+                  {note.author}: {note.note}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p>Select an incident and open its case timeline.</p>
+        )}
       </section>
 
       <section className="card">
