@@ -1,7 +1,9 @@
 :root {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #0f172a;
-  background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  color: #0b1220;
+  background: radial-gradient(circle at 20% 10%, #dbeafe, transparent 32%),
+    radial-gradient(circle at 80% 20%, #dcfce7, transparent 34%),
+    #f8fafc;
 }
 
 * {
@@ -13,22 +15,126 @@ body {
 }
 
 .container {
+  max-width: 1200px;
+  margin: 0 auto;
   min-height: 100vh;
-  padding: 2rem;
+  padding: 1.5rem;
 }
 
-header h1 {
+.hero {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 16px;
+  padding: 1.2rem 1.4rem;
+}
+
+.hero h1 {
   margin: 0;
+  letter-spacing: 0.3px;
 }
 
-header p {
-  margin-top: 0.5rem;
+.hero p {
+  margin: 0.5rem 0 0;
+  color: #cbd5e1;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.two-cols {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.three-cols {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .card {
-  margin-top: 1.5rem;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 12px;
-  padding: 1.25rem;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  padding: 1rem;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+h2,
+h3 {
+  margin-top: 0;
+}
+
+label {
+  display: block;
+  margin: 0.5rem 0 0.35rem;
+  font-size: 0.88rem;
+  color: #334155;
+}
+
+input,
+select,
+textarea,
+button {
+  width: 100%;
+  font: inherit;
+  border-radius: 8px;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid #cbd5e1;
+  padding: 0.5rem;
+  background: #f8fafc;
+}
+
+button {
+  margin-top: 0.6rem;
+  border: none;
+  padding: 0.6rem 0.75rem;
+  background: linear-gradient(90deg, #2563eb, #0ea5e9);
+  color: #f8fafc;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.03);
+}
+
+.list {
+  margin: 0.5rem 0 0;
+  padding-left: 1rem;
+}
+
+.list li {
+  margin-bottom: 0.6rem;
+}
+
+.inline-actions {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.metrics p,
+.status,
+p {
+  margin: 0.35rem 0;
+}
+
+.status {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+@media (max-width: 950px) {
+  .two-cols,
+  .three-cols {
+    grid-template-columns: 1fr;
+  }
 }
