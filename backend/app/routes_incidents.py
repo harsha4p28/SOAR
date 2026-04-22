@@ -3,6 +3,7 @@ from flask import Blueprint, g, jsonify, request
 from .auth import require_api_key
 from .extensions import db
 from .models import Incident, IncidentNote, ResponseAction
+from .services.audit import record_event
 from .services.remediation import remediation_plan_for
 
 incidents_api = Blueprint("incidents_api", __name__)
@@ -30,6 +31,7 @@ def get_remediation_plan(incident_id):
 def close_incident(incident_id):
     incident = Incident.query.get_or_404(incident_id)
     incident.status = "closed"
+    record_event("incident_closed", "incident", incident.id, {"status": incident.status})
     db.session.commit()
     return jsonify({"message": "Incident closed", "incident_id": incident.id})
 
@@ -89,6 +91,12 @@ def assign_incident(incident_id):
     owner_id = data.get("owner_id")
     incident.owner_id = owner_id
     incident.status = data.get("status", incident.status)
+    record_event(
+        "incident_assigned",
+        "incident",
+        incident.id,
+        {"owner_id": owner_id, "status": incident.status},
+    )
     db.session.commit()
     return jsonify({"message": "Incident assigned", "incident_id": incident.id})
 
@@ -105,6 +113,13 @@ def add_note(incident_id):
     note = IncidentNote(incident_id=incident.id, author_id=g.current_user.id, note=note_text)
     incident.status = data.get("status", incident.status)
     db.session.add(note)
+    db.session.flush()
+    record_event(
+        "incident_note_added",
+        "incident",
+        incident.id,
+        {"note_id": note.id, "status": incident.status},
+    )
     db.session.commit()
     return jsonify(
         {
@@ -129,5 +144,6 @@ def update_status(incident_id):
         return jsonify({"error": "Status is required"}), 400
 
     incident.status = status
+    record_event("incident_status_updated", "incident", incident.id, {"status": status})
     db.session.commit()
     return jsonify({"message": "Incident status updated", "incident_id": incident.id, "status": incident.status})

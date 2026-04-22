@@ -23,6 +23,7 @@ function App() {
   const [remediation, setRemediation] = useState(null);
   const [timeline, setTimeline] = useState(null);
   const [noteText, setNoteText] = useState('');
+  const [auditEvents, setAuditEvents] = useState([]);
   const [alertInput, setAlertInput] = useState(defaultAlert);
   const [status, setStatus] = useState('Ready');
 
@@ -89,6 +90,15 @@ function App() {
       setStatus(error.message);
     }
   }
+  
+  async function loadAuditEvents() {
+    try {
+      const result = await apiRequest('/audit', {}, token);
+      setAuditEvents(result);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
 
   async function executePlaybook(incidentId) {
     try {
@@ -96,6 +106,7 @@ function App() {
       setStatus(`Playbook executed for incident #${incidentId}.`);
       await loadIncidents();
       await loadMetrics();
+      await loadAuditEvents();
     } catch (error) {
       setStatus(error.message);
     }
@@ -115,6 +126,7 @@ function App() {
       const result = await apiRequest(`/incidents/${incidentId}/timeline`, {}, token);
       setTimeline(result);
       setRemediation(null);
+      await loadAuditEvents();
     } catch (error) {
       setStatus(error.message);
     }
@@ -212,6 +224,18 @@ function App() {
             {alerts.map((alert) => (
               <li key={alert.id}>
                 <strong>{alert.attack_type}</strong> {alert.endpoint} ({alert.status})
+              </li>
+            ))}
+          </ul>
+        </article>
+        
+        <article className="card">
+          <h2>Audit Trail</h2>
+          <button onClick={loadAuditEvents}>Refresh Audit Log</button>
+          <ul className="list">
+            {auditEvents.map((event) => (
+              <li key={event.id}>
+                <strong>{event.event_type}</strong> {event.entity_type} #{event.entity_id ?? '-'} by {event.actor || 'system'}
               </li>
             ))}
           </ul>

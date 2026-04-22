@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, request
 from .auth import require_api_key
 from .extensions import db
 from .models import Alert, Incident
+from .services.audit import record_event
 from .services.threat_engine import (
     build_recommended_response,
     calculate_exploitability_score,
@@ -40,6 +41,17 @@ def ingest_alert():
     )
     db.session.add(alert)
     db.session.flush()
+    record_event(
+        "alert_ingested",
+        "alert",
+        alert.id,
+        {
+            "attack_type": alert.attack_type,
+            "endpoint": alert.endpoint,
+            "exploitability_score": exploitability_score,
+            "status": status,
+        },
+    )
 
     incident = None
     if exploitability_score >= 0.35:
@@ -54,6 +66,17 @@ def ingest_alert():
             alert_id=alert.id,
         )
         db.session.add(incident)
+        db.session.flush()
+        record_event(
+            "incident_created",
+            "incident",
+            incident.id,
+            {
+                "title": incident.title,
+                "attack_type": incident.attack_type,
+                "severity": incident.severity,
+            },
+        )
 
     db.session.commit()
 
@@ -98,6 +121,7 @@ def list_alerts():
             for alert in alerts
         ]
     )
+
 
 
 @alerts_api.get("/incidents")

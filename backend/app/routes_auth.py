@@ -3,6 +3,7 @@ from flask import Blueprint, g, jsonify, request
 from .auth import require_api_key
 from .extensions import db
 from .models import User
+from .services.audit import record_event
 from .security import generate_api_token, hash_api_token
 
 auth_api = Blueprint("auth_api", __name__)
@@ -26,6 +27,13 @@ def bootstrap_admin():
         is_active=True,
     )
     db.session.add(admin_user)
+    record_event(
+        "admin_bootstrap_completed",
+        "user",
+        admin_user.id,
+        {"username": admin_user.username, "role": admin_user.role},
+        actor_id=admin_user.id,
+    )
     db.session.commit()
 
     return (
@@ -65,6 +73,7 @@ def rotate_token():
     user = g.current_user
     raw_token = generate_api_token()
     user.api_token_hash = hash_api_token(raw_token)
+    record_event("token_rotated", "user", user.id, {"username": user.username})
     db.session.commit()
 
     return jsonify({"message": "Token rotated", "api_token": raw_token})

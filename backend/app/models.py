@@ -74,3 +74,15 @@ class IncidentNote(BaseModel):
 
     incident = db.relationship("Incident", backref="notes")
     author = db.relationship("User", backref="incident_notes")
+
+
+class AuditEvent(BaseModel):
+    __tablename__ = "audit_events"
+
+    actor_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    event_type = db.Column(db.String(80), nullable=False)
+    entity_type = db.Column(db.String(80), nullable=False)
+    entity_id = db.Column(db.Integer, nullable=True)
+    details = db.Column(db.JSON, nullable=False, default=dict)
+
+    actor = db.relationship("User", backref="audit_events")

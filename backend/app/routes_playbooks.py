@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify
 from .auth import require_api_key
 from .extensions import db
 from .models import Incident, ResponseAction
+from .services.audit import record_event
 from .services.playbook_engine import build_playbook_actions
 
 playbooks_api = Blueprint("playbooks_api", __name__)
@@ -26,6 +27,15 @@ def execute_playbook(incident_id):
         created_actions.append(record)
 
     incident.status = "mitigated"
+    record_event(
+        "playbook_executed",
+        "incident",
+        incident.id,
+        {
+            "actions": [action["action_type"] for action in actions],
+            "result_status": incident.status,
+        },
+    )
     db.session.commit()
 
     return jsonify(
