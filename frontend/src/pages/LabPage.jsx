@@ -28,6 +28,36 @@ function LabPage() {
     }
   }
 
+  async function enableSecureMode() {
+    try {
+      const response = await fetch(`${payload.target}/demo/remediate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      setResult(data);
+      setStatus('Secure mode enabled in vulnerable app. Attack paths now use corrective handlers.');
+      focusOutput('lab-response-output');
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
+  async function resetLabMode() {
+    try {
+      const response = await fetch(`${payload.target}/demo/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await response.json();
+      setResult(data);
+      setStatus('Lab reset to vulnerable mode.');
+      focusOutput('lab-response-output');
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }
+
   return (
     <section className="grid two-cols">
       <article className="card">
@@ -48,6 +78,8 @@ function LabPage() {
           <option value="ssrf">SSRF Probe</option>
         </select>
         <button onClick={triggerAttack}>Trigger Attack</button>
+        <button onClick={enableSecureMode}>Enable Corrective Changes</button>
+        <button onClick={resetLabMode}>Reset to Vulnerable Mode</button>
       </article>
 
       <article className="card focus-target" id="lab-response-output" tabIndex="-1">

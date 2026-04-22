@@ -1,6 +1,9 @@
 import os
 import sqlite3
+import html
+import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 from dotenv import load_dotenv
@@ -21,6 +24,25 @@ def get_soar_api_token():
     return os.getenv('SOAR_API_TOKEN', '')
 
 app = Flask(__name__)
+app.config['SECURE_MODE'] = False
+
+SAFE_FETCH_HOSTS = {'example.com', 'httpbin.org'}
+
+
+def is_suspicious_sql_input(value):
+    upper = value.upper()
+    return any(token in upper for token in ["' OR", '--', ';', 'UNION', 'DROP', 'SELECT'])
+
+
+def is_valid_username(value):
+    return bool(re.fullmatch(r'[A-Za-z0-9_]{3,32}', value))
+
+
+def is_allowed_fetch_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme not in {'http', 'https'}:
+        return False
+    return parsed.hostname in SAFE_FETCH_HOSTS
 
 
 def db_connect():
@@ -82,6 +104,24 @@ def trigger_attack():
     return jsonify({'attack': 'sqli', 'payload': payload, 'soar': report})
 
 
+@app.post('/demo/remediate')
+def apply_remediation_mode():
+    app.config['SECURE_MODE'] = True
+    return jsonify(
+        {
+            'message': 'Secure mode enabled for lab endpoints',
+            'secure_routes': ['/app/login', '/app/comment', '/app/fetch'],
+        }
+    )
+
+
+@app.post('/demo/reset')
+def reset_mode():
+    app.config['SECURE_MODE'] = False
+    seed_db()
+    return jsonify({'message': 'Lab reset and vulnerable mode restored'})
+
+
 @app.get('/vuln/login')
 def vulnerable_login():
     username = request.args.get('username', '')
@@ -102,6 +142,30 @@ def vulnerable_login():
     return jsonify({'query': raw_query, 'matched_rows': len(rows), 'rows': rows})
 
 
+@app.get('/secure/login')
+def secure_login():
+    username = request.args.get('username', '')
+    password = request.args.get('password', '')
+
+    if not is_valid_username(username):
+        return jsonify({'error': 'Invalid username format'}), 400
+
+    if is_suspicious_sql_input(username) or is_suspicious_sql_input(password):
+        push_alert('SQL_INJECTION', '/secure/login', f'{username}:{password}', source='secure-guard')
+        return jsonify({'error': 'Potential injection pattern blocked'}), 403
+
+    conn = db_connect()
+    try:
+        rows = conn.execute(
+            'SELECT id, username, role FROM users WHERE username = ? AND password = ?',
+            (username, password),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    return jsonify({'matched_rows': len(rows), 'rows': rows, 'secure': True})
+
+
 @app.post('/vuln/comment')
 def vulnerable_comment():
     data = request.get_json(silent=True) or {}
@@ -112,6 +176,57 @@ def vulnerable_comment():
 
     # Intentional reflected output pattern for XSS demonstration.
     return jsonify({'rendered': comment, 'stored': False})
+
+
+@app.post('/secure/comment')
+def secure_comment():
+    data = request.get_json(silent=True) or {}
+    comment = data.get('comment', '')
+
+    if '<script' in comment.lower():
+        push_alert('CROSS_SITE_SCRIPTING', '/secure/comment', comment, source='secure-guard')
+
+    encoded = html.escape(comment, quote=True)
+    return jsonify({'rendered': encoded, 'stored': False, 'secure': True})
+
+
+@app.get('/vuln/fetch')
+def vulnerable_fetch():
+    target = request.args.get('url', 'http://example.com')
+    if '169.254.169.254' in target:
+        push_alert('SERVER_SIDE_REQUEST_FORGERY', '/vuln/fetch', target)
+    return jsonify({'requested_url': target, 'secure': False})
+
+
+@app.get('/secure/fetch')
+def secure_fetch():
+    target = request.args.get('url', 'https://example.com')
+    if not is_allowed_fetch_url(target):
+        push_alert('SERVER_SIDE_REQUEST_FORGERY', '/secure/fetch', target, source='secure-guard')
+        return jsonify({'error': 'Target URL blocked by allowlist'}), 403
+
+    return jsonify({'requested_url': target, 'secure': True})
+
+
+@app.route('/app/login', methods=['GET'])
+def app_login():
+    if app.config['SECURE_MODE']:
+        return secure_login()
+    return vulnerable_login()
+
+
+@app.route('/app/comment', methods=['POST'])
+def app_comment():
+    if app.config['SECURE_MODE']:
+        return secure_comment()
+    return vulnerable_comment()
+
+
+@app.route('/app/fetch', methods=['GET'])
+def app_fetch():
+    if app.config['SECURE_MODE']:
+        return secure_fetch()
+    return vulnerable_fetch()
 
 
 if __name__ == '__main__':
