@@ -21,3 +21,34 @@ class User(BaseModel):
     role = db.Column(db.String(30), nullable=False, default="analyst")
     api_token_hash = db.Column(db.String(128), nullable=False)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class Alert(BaseModel):
+    __tablename__ = "alerts"
+
+    attack_type = db.Column(db.String(50), nullable=False)
+    source = db.Column(db.String(80), nullable=False, default="unknown")
+    source_ip = db.Column(db.String(64), nullable=True)
+    endpoint = db.Column(db.String(255), nullable=False)
+    http_method = db.Column(db.String(10), nullable=False, default="GET")
+    payload = db.Column(db.Text, nullable=True)
+    context = db.Column(db.JSON, nullable=False, default=dict)
+    confidence_score = db.Column(db.Float, nullable=False, default=0.0)
+    exploitability_score = db.Column(db.Float, nullable=False, default=0.0)
+    status = db.Column(db.String(30), nullable=False, default="new")
+
+
+class Incident(BaseModel):
+    __tablename__ = "incidents"
+
+    title = db.Column(db.String(255), nullable=False)
+    attack_type = db.Column(db.String(50), nullable=False)
+    severity = db.Column(db.String(20), nullable=False, default="medium")
+    status = db.Column(db.String(30), nullable=False, default="open")
+    context = db.Column(db.JSON, nullable=False, default=dict)
+    recommended_response = db.Column(db.JSON, nullable=False, default=list)
+    alert_id = db.Column(db.Integer, db.ForeignKey("alerts.id"), nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+
+    alert = db.relationship("Alert", backref="incidents")
+    owner = db.relationship("User", backref="incidents")
