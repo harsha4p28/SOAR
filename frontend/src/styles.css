@@ -1,9 +1,9 @@
 :root {
-  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   color: #0b1220;
-  background: radial-gradient(circle at 20% 10%, #dbeafe, transparent 32%),
-    radial-gradient(circle at 80% 20%, #dcfce7, transparent 34%),
-    #f8fafc;
+  background:
+    radial-gradient(circle at 20% 10%, #dbeafe, transparent 32%),
+    radial-gradient(circle at 80% 20%, #dcfce7, transparent 34%), #f8fafc;
 }
 
 * {
@@ -146,6 +146,60 @@ button:hover {
 
 .list li {
   margin-bottom: 0.6rem;
+}
+
+/* Incident card styles */
+.incident-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.incident-card {
+  border: 1px solid #e6eef8;
+  padding: 0.65rem;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.incident-card.selected {
+  box-shadow: 0 8px 20px rgba(14, 165, 233, 0.12);
+  border-color: #0ea5e9;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header .muted {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.card-actions button {
+  margin-left: 0.45rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.incident-desc {
+  margin: 0.5rem 0 0;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  gap: 2rem;
+}
+
+.case-controls button {
+  min-width: 120px;
 }
 
 .inline-actions {
