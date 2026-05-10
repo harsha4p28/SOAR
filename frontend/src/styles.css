@@ -196,10 +196,27 @@ button:hover {
 
 .pagination {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   margin-top: 0.75rem;
-  gap: 2rem;
+  gap: 1rem;
+  flex-wrap: nowrap;
+}
+
+.pagination span {
+  white-space: nowrap;
+  font-size: 0.95rem;
+  color: #475569;
+  font-weight: 500;
+.pagination button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 }
 
 .case-controls button {

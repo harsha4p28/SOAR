@@ -7,12 +7,22 @@ function GovernancePage() {
     useSoar();
   const [auditEvents, setAuditEvents] = useState([]);
   const [approvals, setApprovals] = useState([]);
+  const [auditCurrentPage, setAuditCurrentPage] = useState(1);
+  const [recentDecisionsCurrentPage, setRecentDecisionsCurrentPage] = useState(1);
+  const perPage = 10;
+  
   const pendingApprovals = approvals.filter(
     (approval) => approval.approval_status === "pending",
   );
   const decidedApprovals = approvals.filter(
     (approval) => approval.approval_status !== "pending",
   );
+  
+  const auditPageCount = Math.max(1, Math.ceil(auditEvents.length / perPage));
+  const auditPageItems = auditEvents.slice((auditCurrentPage - 1) * perPage, auditCurrentPage * perPage);
+  
+  const recentDecisionsPageCount = Math.max(1, Math.ceil(decidedApprovals.length / perPage));
+  const recentDecisionsPageItems = decidedApprovals.slice((recentDecisionsCurrentPage - 1) * perPage, recentDecisionsCurrentPage * perPage);
 
   async function refreshGovernance() {
     try {
@@ -22,6 +32,8 @@ function GovernancePage() {
       ]);
       setAuditEvents(auditData);
       setApprovals(approvalData);
+      setAuditCurrentPage(1);
+      setRecentDecisionsCurrentPage(1);
       focusOutput("governance-approvals-output");
     } catch (error) {
       setStatus(error.message);
@@ -83,13 +95,32 @@ function GovernancePage() {
         <h3>Recent Decisions</h3>
         <ul className="list">
           {decidedApprovals.length === 0 && <li>No resolved approvals yet.</li>}
-          {decidedApprovals.slice(0, 10).map((approval) => (
+          {recentDecisionsPageItems.map((approval) => (
             <li key={approval.id}>
               <strong>Approval #{approval.id}</strong> for incident #
               {approval.incident_id} is {approval.approval_status}
             </li>
           ))}
         </ul>
+        {recentDecisionsPageCount > 1 && (
+          <div className="pagination">
+            <button
+              disabled={recentDecisionsCurrentPage === 1}
+              onClick={() => setRecentDecisionsCurrentPage(recentDecisionsCurrentPage - 1)}
+            >
+              Previous
+            </button>
+            <span>
+              Page {recentDecisionsCurrentPage} of {recentDecisionsPageCount}
+            </span>
+            <button
+              disabled={recentDecisionsCurrentPage === recentDecisionsPageCount}
+              onClick={() => setRecentDecisionsCurrentPage(recentDecisionsCurrentPage + 1)}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </article>
 
       <article
@@ -100,13 +131,33 @@ function GovernancePage() {
         <h2>Audit Trail</h2>
         <button onClick={refreshGovernance}>Refresh</button>
         <ul className="list">
-          {auditEvents.map((event) => (
+          {auditEvents.length === 0 && <li>No audit events yet.</li>}
+          {auditPageItems.map((event) => (
             <li key={event.id}>
               <strong>{event.event_type}</strong> {event.entity_type} #
               {event.entity_id ?? "-"} by {event.actor || "system"}
             </li>
           ))}
         </ul>
+        {auditPageCount > 1 && (
+          <div className="pagination">
+            <button
+              disabled={auditCurrentPage === 1}
+              onClick={() => setAuditCurrentPage(auditCurrentPage - 1)}
+            >
+              Previous
+            </button>
+            <span>
+              Page {auditCurrentPage} of {auditPageCount} ({auditEvents.length} total)
+            </span>
+            <button
+              disabled={auditCurrentPage === auditPageCount}
+              onClick={() => setAuditCurrentPage(auditCurrentPage + 1)}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </article>
     </section>
   );

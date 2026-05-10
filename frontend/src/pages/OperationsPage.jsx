@@ -15,6 +15,9 @@ function OperationsPage() {
 
   const [alerts, setAlerts] = useState([]);
   const [connectors, setConnectors] = useState([]);
+  const [alertsCurrentPage, setAlertsCurrentPage] = useState(1);
+  const [connectorsCurrentPage, setConnectorsCurrentPage] = useState(1);
+  const perPage = 10;
   const [alertInput, setAlertInput] = useState(defaultAlert);
   const [connectorInput, setConnectorInput] = useState({
     name: 'Primary SIEM',
@@ -23,11 +26,19 @@ function OperationsPage() {
     auth_type: 'token',
   });
 
+  const alertsPageCount = Math.max(1, Math.ceil(alerts.length / perPage));
+  const alertsPageItems = alerts.slice((alertsCurrentPage - 1) * perPage, alertsCurrentPage * perPage);
+
+  const connectorsPageCount = Math.max(1, Math.ceil(connectors.length / perPage));
+  const connectorsPageItems = connectors.slice((connectorsCurrentPage - 1) * perPage, connectorsCurrentPage * perPage);
+
   async function refreshOperations() {
     try {
       const [alertData, connectorData] = await Promise.all([loadAlerts(), loadConnectors()]);
       setAlerts(alertData);
       setConnectors(connectorData);
+      setAlertsCurrentPage(1);
+      setConnectorsCurrentPage(1);
       focusOutput('operations-alert-output');
     } catch (error) {
       setStatus(error.message);
@@ -127,19 +138,40 @@ function OperationsPage() {
           <h2>Recent Alerts</h2>
           <button onClick={refreshOperations}>Refresh</button>
           <ul className="list">
-            {alerts.map((alert) => (
+            {alerts.length === 0 && <li>No alerts.</li>}
+            {alertsPageItems.map((alert) => (
               <li key={alert.id}>
                 <strong>{alert.attack_type}</strong> {alert.endpoint} ({alert.status})
               </li>
             ))}
           </ul>
+          {alertsPageCount > 1 && (
+            <div className="pagination">
+              <button
+                disabled={alertsCurrentPage === 1}
+                onClick={() => setAlertsCurrentPage(alertsCurrentPage - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {alertsCurrentPage} of {alertsPageCount} ({alerts.length} total)
+              </span>
+              <button
+                disabled={alertsCurrentPage === alertsPageCount}
+                onClick={() => setAlertsCurrentPage(alertsCurrentPage + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </article>
 
         <article className="card focus-target" id="operations-connector-output" tabIndex="-1">
           <h2>Integration Health</h2>
           <button onClick={refreshOperations}>Refresh</button>
           <ul className="list">
-            {connectors.map((connector) => (
+            {connectors.length === 0 && <li>No connectors registered.</li>}
+            {connectorsPageItems.map((connector) => (
               <li key={connector.id}>
                 <strong>{connector.name}</strong> {connector.category} ({connector.status})
                 <div className="inline-actions">
@@ -148,6 +180,25 @@ function OperationsPage() {
               </li>
             ))}
           </ul>
+          {connectorsPageCount > 1 && (
+            <div className="pagination">
+              <button
+                disabled={connectorsCurrentPage === 1}
+                onClick={() => setConnectorsCurrentPage(connectorsCurrentPage - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {connectorsCurrentPage} of {connectorsPageCount} ({connectors.length} total)
+              </span>
+              <button
+                disabled={connectorsCurrentPage === connectorsPageCount}
+                onClick={() => setConnectorsCurrentPage(connectorsCurrentPage + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </article>
       </section>
     </>
