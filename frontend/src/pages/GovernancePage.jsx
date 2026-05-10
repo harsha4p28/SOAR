@@ -7,6 +7,12 @@ function GovernancePage() {
     useSoar();
   const [auditEvents, setAuditEvents] = useState([]);
   const [approvals, setApprovals] = useState([]);
+  const pendingApprovals = approvals.filter(
+    (approval) => approval.approval_status === "pending",
+  );
+  const decidedApprovals = approvals.filter(
+    (approval) => approval.approval_status !== "pending",
+  );
 
   async function refreshGovernance() {
     try {
@@ -29,7 +35,7 @@ function GovernancePage() {
   async function updateApproval(approvalId, decision) {
     try {
       await decideApproval(approvalId, decision);
-      // Optimistically update the approval in the UI so it disappears/updates immediately
+      // Optimistically update the approval in the UI so the queue clears immediately.
       setApprovals((prev) =>
         prev.map((a) =>
           a.id === approvalId ? { ...a, approval_status: decision } : a,
@@ -52,12 +58,16 @@ function GovernancePage() {
         tabIndex="-1"
       >
         <h2>Approval Queue</h2>
+        <p className="muted">
+          Pending: {pendingApprovals.length} | Resolved: {decidedApprovals.length}
+        </p>
         <button onClick={refreshGovernance}>Refresh</button>
         <ul className="list">
-          {approvals.map((approval) => (
+          {pendingApprovals.length === 0 && <li>No pending approvals.</li>}
+          {pendingApprovals.map((approval) => (
             <li key={approval.id}>
-              <strong>{approval.approval_type}</strong> incident #
-              {approval.incident_id} ({approval.approval_status})
+              <strong>Approval #{approval.id}</strong> for incident #
+              {approval.incident_id} ({approval.approval_type})
               <div className="inline-actions">
                 <button onClick={() => updateApproval(approval.id, "approved")}>
                   Approve
@@ -66,6 +76,17 @@ function GovernancePage() {
                   Reject
                 </button>
               </div>
+            </li>
+          ))}
+        </ul>
+
+        <h3>Recent Decisions</h3>
+        <ul className="list">
+          {decidedApprovals.length === 0 && <li>No resolved approvals yet.</li>}
+          {decidedApprovals.slice(0, 10).map((approval) => (
+            <li key={approval.id}>
+              <strong>Approval #{approval.id}</strong> for incident #
+              {approval.incident_id} is {approval.approval_status}
             </li>
           ))}
         </ul>

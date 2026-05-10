@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { useSoar } from "../context/SoarContext";
 import { focusOutput } from "../utils/focusOutput";
 
@@ -18,11 +18,36 @@ function IncidentsPage() {
   const [selectedIncidentId, setSelectedIncidentId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const perPage = 6;
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [severityFilter, setSeverityFilter] = useState("all");
+  const [attackTypeFilter, setAttackTypeFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [timeline, setTimeline] = useState(null);
   const [report, setReport] = useState(null);
   const [remediation, setRemediation] = useState(null);
   const [approval, setApproval] = useState(null);
   const [noteText, setNoteText] = useState("");
+
+  const filteredIncidents = incidents.filter((incident) => {
+    const matchesStatus =
+      statusFilter === "all" || incident.status === statusFilter;
+    const matchesSeverity =
+      severityFilter === "all" || incident.severity === severityFilter;
+    const matchesAttackType =
+      attackTypeFilter === "all" || incident.attack_type === attackTypeFilter;
+    const search = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !search ||
+      `${incident.id} ${incident.title || ""} ${incident.attack_type || ""} ${incident.status || ""} ${incident.severity || ""}`
+        .toLowerCase()
+        .includes(search);
+
+    return matchesStatus && matchesSeverity && matchesAttackType && matchesSearch;
+  });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, severityFilter, attackTypeFilter, searchTerm]);
 
   async function refreshIncidents() {
     try {
@@ -38,12 +63,23 @@ function IncidentsPage() {
   }, []);
 
   useEffect(() => {
-    // select first incident on load if none selected
-    if (incidents.length > 0 && !selectedIncidentId) {
-      const first = incidents[0].id;
+    if (filteredIncidents.length === 0) {
+      setSelectedIncidentId(null);
+      setTimeline(null);
+      setReport(null);
+      setRemediation(null);
+      return;
+    }
+
+    const selectedStillVisible = filteredIncidents.some(
+      (incident) => incident.id === selectedIncidentId,
+    );
+
+    if (!selectedIncidentId || !selectedStillVisible) {
+      const first = filteredIncidents[0].id;
       openCase(first);
     }
-  }, [incidents]);
+  }, [filteredIncidents, selectedIncidentId]);
 
   async function openCase(incidentId) {
     try {
@@ -66,7 +102,6 @@ function IncidentsPage() {
     try {
       const result = await executePlaybook(incidentId);
 
-      // If backend requires approval (202), show pending UI and link to approvals
       if (result && result.approval_required) {
         setApproval(result.approval || null);
         setStatus("Playbook execution requires approval and is pending.");
@@ -113,83 +148,142 @@ function IncidentsPage() {
     }
   }
 
+  function clearFilters() {
+    setStatusFilter("all");
+    setSeverityFilter("all");
+    setAttackTypeFilter("all");
+    setSearchTerm("");
+  }
+
+  const attackTypes = [...new Set(incidents.map((incident) => incident.attack_type).filter(Boolean))];
+  const severities = [...new Set(incidents.map((incident) => incident.severity).filter(Boolean))];
+  const statuses = [...new Set(incidents.map((incident) => incident.status).filter(Boolean))];
+  const pageCount = Math.max(1, Math.ceil(filteredIncidents.length / perPage));
+  const pageItems = filteredIncidents.slice((currentPage - 1) * perPage, currentPage * perPage);
+
   return (
     <>
-      <section className="grid two-cols">
+      <section className="grid incident-stack">
         <article className="card">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2>Incident Queue</h2>
             <div>
               <button onClick={refreshIncidents}>Refresh</button>
             </div>
           </div>
 
+          <div
+            className="incident-filters"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: "0.75rem",
+              margin: "0.75rem 0 1rem",
+              padding: "0.75rem",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "12px",
+            }}
+          >
+            <div>
+              <label>Status</label>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="all">All</option>
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Severity</label>
+              <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}>
+                <option value="all">All</option>
+                {severities.map((severity) => (
+                  <option key={severity} value={severity}>
+                    {severity}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Vuln Type</label>
+              <select value={attackTypeFilter} onChange={(event) => setAttackTypeFilter(event.target.value)}>
+                <option value="all">All</option>
+                {attackTypes.map((attackType) => (
+                  <option key={attackType} value={attackType}>
+                    {attackType}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label>Search</label>
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="ID, title, type, status"
+              />
+            </div>
+            <div style={{ display: "flex", alignItems: "end" }}>
+              <button onClick={clearFilters}>Clear Filters</button>
+            </div>
+          </div>
+
+          <p className="muted" style={{ marginTop: 0 }}>
+            Showing {filteredIncidents.length} of {incidents.length} incidents
+          </p>
+
           <div className="incident-cards">
             {incidents.length === 0 && <p>No incidents.</p>}
+            {incidents.length > 0 && filteredIncidents.length === 0 && <p>No incidents match the current filters.</p>}
 
-            {incidents
-              .slice((currentPage - 1) * perPage, currentPage * perPage)
-              .map((incident, idx) => (
-                <div
-                  key={incident.id}
-                  className={`incident-card ${selectedIncidentId === incident.id ? "selected" : ""}`}
-                >
-                  <div className="card-header">
-                    <div>
-                      <strong>{incident.attack_type}</strong>
-                      <div className="muted">
-                        {incident.severity} • {incident.status}
-                      </div>
-                    </div>
-                    <div className="card-actions">
-                      <button onClick={() => openCase(incident.id)}>
-                        Open
-                      </button>
-                      <button onClick={() => runPlaybook(incident.id)}>
-                        Playbook
-                      </button>
+            {pageItems.map((incident) => (
+              <div
+                key={incident.id}
+                className={`incident-card ${selectedIncidentId === incident.id ? "selected" : ""}`}
+              >
+                <div className="card-header">
+                  <div>
+                    <strong>{incident.attack_type}</strong>
+                    <div className="muted">
+                      {incident.severity} • {incident.status}
                     </div>
                   </div>
-                  <p className="incident-desc">
-                    {incident.description || incident.title || ""}
-                  </p>
+                  <div className="card-actions">
+                    <button onClick={() => openCase(incident.id)}>Open</button>
+                    <button
+                      onClick={() => runPlaybook(incident.id)}
+                      disabled={incident.status === "closed"}
+                      title={incident.status === "closed" ? "Incident already closed" : "Run playbook"}
+                    >
+                      Playbook
+                    </button>
+                  </div>
                 </div>
-              ))}
+                <p className="incident-desc">{incident.description || incident.title || ""}</p>
+              </div>
+            ))}
           </div>
 
           <div className="pagination">
-            <button
-              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
+            <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>
               Prev
             </button>
             <span>
-              Page {currentPage} /{" "}
-              {Math.max(1, Math.ceil(incidents.length / perPage))}
+              Page {currentPage} / {pageCount}
             </span>
             <button
-              onClick={() =>
-                setCurrentPage(
-                  Math.min(
-                    Math.ceil(incidents.length / perPage) || 1,
-                    currentPage + 1,
-                  ),
-                )
-              }
-              disabled={currentPage >= Math.ceil(incidents.length / perPage)}
+              onClick={() => setCurrentPage(Math.min(pageCount, currentPage + 1))}
+              disabled={currentPage >= pageCount}
             >
               Next
             </button>
           </div>
         </article>
+      </section>
 
+      <section className="grid two-cols">
         <article className="card">
           <h2>Case Details</h2>
           {approval && (
@@ -202,12 +296,8 @@ function IncidentsPage() {
                 border: "1px solid #ffd966",
               }}
             >
-              <strong>Approval pending:</strong> Approval #{approval.id}{" "}
-              required for this playbook.
-              <div
-                className="inline-actions"
-                style={{ display: "inline-block", marginLeft: "0.6rem" }}
-              >
+              <strong>Approval pending:</strong> Approval #{approval.id} required for this playbook.
+              <div className="inline-actions" style={{ display: "inline-block", marginLeft: "0.6rem" }}>
                 <button
                   onClick={() => {
                     setApproval(null);
@@ -222,18 +312,13 @@ function IncidentsPage() {
           <p>Selected Incident: {selectedIncidentId || "none"}</p>
           <div className="case-controls inline-actions">
             <button onClick={addCaseNote}>Add Note</button>
-            <button onClick={() => moveStatus("in_review")}>
-              Move to In Review
-            </button>
+            <button onClick={() => moveStatus("in_review")}>Move to In Review</button>
             <button onClick={() => moveStatus("closed")}>Close Incident</button>
             <button
               onClick={() => {
-                // navigate to previous incident in the full list
                 if (!selectedIncidentId) return;
-                const index = incidents.findIndex(
-                  (i) => i.id === selectedIncidentId,
-                );
-                if (index > 0) openCase(incidents[index - 1].id);
+                const index = filteredIncidents.findIndex((i) => i.id === selectedIncidentId);
+                if (index > 0) openCase(filteredIncidents[index - 1].id);
               }}
             >
               Prev Case
@@ -241,11 +326,8 @@ function IncidentsPage() {
             <button
               onClick={() => {
                 if (!selectedIncidentId) return;
-                const index = incidents.findIndex(
-                  (i) => i.id === selectedIncidentId,
-                );
-                if (index < incidents.length - 1)
-                  openCase(incidents[index + 1].id);
+                const index = filteredIncidents.findIndex((i) => i.id === selectedIncidentId);
+                if (index < filteredIncidents.length - 1) openCase(filteredIncidents[index + 1].id);
               }}
             >
               Next Case
@@ -263,11 +345,7 @@ function IncidentsPage() {
       </section>
 
       <section className="grid two-cols">
-        <article
-          className="card focus-target"
-          id="incidents-timeline-output"
-          tabIndex="-1"
-        >
+        <article className="card focus-target" id="incidents-timeline-output" tabIndex="-1">
           <h2>Timeline</h2>
           {timeline ? (
             <div>
@@ -275,8 +353,7 @@ function IncidentsPage() {
                 <strong>{timeline.incident.title}</strong>
               </p>
               <p>
-                Status: {timeline.incident.status} | Owner:{" "}
-                {timeline.incident.owner || "unassigned"}
+                Status: {timeline.incident.status} | Owner: {timeline.incident.owner || "unassigned"}
               </p>
               <h3>Actions</h3>
               <ul className="list">
@@ -300,11 +377,7 @@ function IncidentsPage() {
           )}
         </article>
 
-        <article
-          className="card focus-target"
-          id="incidents-report-output"
-          tabIndex="-1"
-        >
+        <article className="card focus-target" id="incidents-report-output" tabIndex="-1">
           <h2>Incident Report + Remediation</h2>
           {report ? (
             <div>
@@ -312,8 +385,7 @@ function IncidentsPage() {
                 <strong>Report:</strong> {report.incident.title}
               </p>
               <p>
-                Severity: {report.incident.severity} | Status:{" "}
-                {report.incident.status}
+                Severity: {report.incident.severity} | Status: {report.incident.status}
               </p>
               <h3>Remediation</h3>
               <ul className="list">

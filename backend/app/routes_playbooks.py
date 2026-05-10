@@ -10,16 +10,73 @@ from .services.playbook_engine import build_playbook_actions
 playbooks_api = Blueprint("playbooks_api", __name__)
 
 
+def _execute_playbook_for_incident(incident):
+    actions = build_playbook_actions(incident)
+    created_actions = []
+    for action in actions:
+        record = ResponseAction(
+            incident_id=incident.id,
+            action_type=action["action_type"],
+            action_status=action["action_status"],
+            details=action["details"],
+        )
+        db.session.add(record)
+        created_actions.append(record)
+
+    incident.status = "closed"
+    record_event(
+        "playbook_executed",
+        "incident",
+        incident.id,
+        {
+            "actions": [action["action_type"] for action in actions],
+            "result_status": incident.status,
+        },
+    )
+
+    return created_actions
+
+
 @playbooks_api.post("/execute/<int:incident_id>")
 @require_api_key(roles=["analyst", "admin"])
 def execute_playbook(incident_id):
     incident = Incident.query.get_or_404(incident_id)
+    if incident.status == "closed":
+        return jsonify({"incident_id": incident.id, "message": "Incident already closed"}), 409
+
     data = request.get_json(silent=True) or {}
     approval_required = incident.severity in {"critical", "high"} and not data.get(
         "force_execute", False
     )
 
+    existing_pending_approval = (
+        ActionApproval.query.filter_by(
+            incident_id=incident.id,
+            approval_type="playbook_execution",
+            approval_status="pending",
+        )
+        .order_by(ActionApproval.created_at.desc())
+        .first()
+    )
+
     if approval_required:
+        if existing_pending_approval:
+            return (
+                jsonify(
+                    {
+                        "incident_id": incident.id,
+                        "approval_required": True,
+                        "message": "Approval already pending",
+                        "approval": {
+                            "id": existing_pending_approval.id,
+                            "status": existing_pending_approval.approval_status,
+                            "approval_type": existing_pending_approval.approval_type,
+                        },
+                    }
+                ),
+                202,
+            )
+
         approval = ActionApproval(
             incident_id=incident.id,
             requested_by_id=g.current_user.id,
@@ -49,28 +106,7 @@ def execute_playbook(incident_id):
             }
         ), 202
 
-    actions = build_playbook_actions(incident)
-    created_actions = []
-    for action in actions:
-        record = ResponseAction(
-            incident_id=incident.id,
-            action_type=action["action_type"],
-            action_status=action["action_status"],
-            details=action["details"],
-        )
-        db.session.add(record)
-        created_actions.append(record)
-
-    incident.status = "mitigated"
-    record_event(
-        "playbook_executed",
-        "incident",
-        incident.id,
-        {
-            "actions": [action["action_type"] for action in actions],
-            "result_status": incident.status,
-        },
-    )
+    created_actions = _execute_playbook_for_incident(incident)
     db.session.commit()
 
     return jsonify(
@@ -139,6 +175,15 @@ def decide_approval(approval_id):
     if decision not in {"approved", "rejected"}:
         return jsonify({"error": "decision must be approved or rejected"}), 400
 
+    if approval.approval_status != "pending":
+        return jsonify(
+            {
+                "message": "Approval already decided",
+                "approval_id": approval.id,
+                "approval_status": approval.approval_status,
+            }
+        )
+
     approval.approval_status = decision
     record_event(
         "playbook_approval_decided",
@@ -146,6 +191,11 @@ def decide_approval(approval_id):
         approval.incident_id,
         {"approval_id": approval.id, "decision": decision},
     )
+
+    incident = approval.incident
+    if decision == "approved" and incident.status != "closed":
+        _execute_playbook_for_incident(incident)
+
     db.session.commit()
     return jsonify(
         {
