@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 import requests
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 from seed import seed_db
 
@@ -26,6 +27,12 @@ def get_soar_api_token():
 
 app = Flask(__name__)
 app.config['SECURE_MODE'] = False
+
+# Allow the Vite frontend to call the demo app from localhost/127.0.0.1 dev origins.
+CORS(
+    app,
+    resources={r'/*': {'origins': ['http://localhost:5173', 'http://127.0.0.1:5173']}},
+)
 
 SAFE_FETCH_HOSTS = {'example.com', 'httpbin.org'}
 
@@ -166,19 +173,30 @@ def trigger_attack():
     data = request.get_json(silent=True) or {}
     attack = data.get('attack', 'sqli')
 
+    if app.config.get('SECURE_MODE'):
+        return jsonify(
+            {
+                'attack': attack,
+                'secure_mode': True,
+                'mitigated': True,
+                'incident_created': False,
+                'message': 'Attack simulation blocked because secure mode is enabled.',
+            }
+        )
+
     if attack == 'xss':
         payload = '<script>alert(document.domain)</script>'
         report = push_alert('CROSS_SITE_SCRIPTING', '/vuln/comment', payload)
-        return jsonify({'attack': attack, 'payload': payload, 'soar': report})
+        return jsonify({'attack': attack, 'payload': payload, 'soar': report, 'secure_mode': False, 'incident_created': True})
 
     if attack == 'ssrf':
         payload = 'http://169.254.169.254/latest/meta-data/'
         report = push_alert('SERVER_SIDE_REQUEST_FORGERY', '/vuln/fetch', payload)
-        return jsonify({'attack': attack, 'payload': payload, 'soar': report})
+        return jsonify({'attack': attack, 'payload': payload, 'soar': report, 'secure_mode': False, 'incident_created': True})
 
     payload = "' OR 1=1 --"
     report = push_alert('SQL_INJECTION', '/vuln/login', payload)
-    return jsonify({'attack': 'sqli', 'payload': payload, 'soar': report})
+    return jsonify({'attack': 'sqli', 'payload': payload, 'soar': report, 'secure_mode': False, 'incident_created': True})
 
 
 @app.post('/demo/remediate')
