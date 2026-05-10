@@ -2,6 +2,7 @@ import os
 import sqlite3
 import html
 import re
+import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -47,6 +48,82 @@ def is_allowed_fetch_url(url):
 
 def db_connect():
     return sqlite3.connect(DB_PATH)
+
+
+def fetch_app_state():
+    conn = db_connect()
+    try:
+        row = conn.execute(
+            'SELECT csrf_token, notifications_enabled FROM app_state WHERE id = 1'
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return row
+
+
+def set_notifications_enabled(enabled):
+    conn = db_connect()
+    try:
+        conn.execute(
+            'UPDATE app_state SET notifications_enabled = ? WHERE id = 1',
+            (1 if enabled else 0,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def fetch_document(document_id):
+    conn = db_connect()
+    try:
+        row = conn.execute(
+            'SELECT id, owner_id, title, body FROM documents WHERE id = ?',
+            (document_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    return row
+
+
+def run_command_insecure(command):
+    completed = subprocess.run(
+        command,
+        shell=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return {
+        'returncode': completed.returncode,
+        'stdout': completed.stdout.strip(),
+        'stderr': completed.stderr.strip(),
+    }
+
+
+def run_command_secure(command):
+    allowed_commands = {
+        'whoami': ['whoami'],
+        'hostname': ['hostname'],
+    }
+    normalized = command.strip().lower()
+    if normalized not in allowed_commands:
+        return {'error': 'Command blocked by allowlist'}
+
+    completed = subprocess.run(
+        allowed_commands[normalized],
+        shell=False,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return {
+        'returncode': completed.returncode,
+        'stdout': completed.stdout.strip(),
+        'stderr': completed.stderr.strip(),
+        'secure': True,
+    }
 
 
 def push_alert(attack_type, endpoint, payload, source='vuln-lab'):
@@ -110,7 +187,7 @@ def apply_remediation_mode():
     return jsonify(
         {
             'message': 'Secure mode enabled for lab endpoints',
-            'secure_routes': ['/app/login', '/app/comment', '/app/fetch'],
+            'secure_routes': ['/app/login', '/app/comment', '/app/fetch', '/app/document/<id>', '/app/settings/notifications', '/app/command'],
         }
     )
 
@@ -120,6 +197,94 @@ def reset_mode():
     app.config['SECURE_MODE'] = False
     seed_db()
     return jsonify({'message': 'Lab reset and vulnerable mode restored'})
+
+
+@app.get('/vuln/document/<int:document_id>')
+def vulnerable_document(document_id):
+    viewer_id = request.args.get('viewer_id', type=int)
+    document = fetch_document(document_id)
+    if document is None:
+        return jsonify({'error': 'Document not found'}), 404
+
+    if viewer_id is not None and viewer_id != document[1]:
+        push_alert('INSECURE_DIRECT_OBJECT_REFERENCES', f'/vuln/document/{document_id}', str(viewer_id))
+
+    return jsonify(
+        {
+            'id': document[0],
+            'owner_id': document[1],
+            'title': document[2],
+            'body': document[3],
+            'secure': False,
+        }
+    )
+
+
+@app.get('/secure/document/<int:document_id>')
+def secure_document(document_id):
+    viewer_id = request.args.get('viewer_id', type=int)
+    document = fetch_document(document_id)
+    if document is None:
+        return jsonify({'error': 'Document not found'}), 404
+
+    if viewer_id is None or viewer_id != document[1]:
+        push_alert('INSECURE_DIRECT_OBJECT_REFERENCES', f'/secure/document/{document_id}', str(viewer_id), source='secure-guard')
+        return jsonify({'error': 'Access denied by object-level policy'}), 403
+
+    return jsonify(
+        {
+            'id': document[0],
+            'owner_id': document[1],
+            'title': document[2],
+            'body': document[3],
+            'secure': True,
+        }
+    )
+
+
+@app.post('/vuln/settings/notifications')
+def vulnerable_notifications():
+    data = request.get_json(silent=True) or {}
+    enabled = bool(data.get('enabled', True))
+    set_notifications_enabled(enabled)
+    state = fetch_app_state()
+    return jsonify({'notifications_enabled': bool(state[1]), 'secure': False})
+
+
+@app.post('/secure/settings/notifications')
+def secure_notifications():
+    data = request.get_json(silent=True) or {}
+    csrf_token = request.headers.get('X-CSRF-Token', '')
+    state = fetch_app_state()
+    if not state or csrf_token != state[0]:
+        push_alert('CROSS_SITE_REQUEST_FORGERY', '/secure/settings/notifications', str(data), source='secure-guard')
+        return jsonify({'error': 'CSRF token validation failed'}), 403
+
+    enabled = bool(data.get('enabled', True))
+    set_notifications_enabled(enabled)
+    state = fetch_app_state()
+    return jsonify({'notifications_enabled': bool(state[1]), 'secure': True})
+
+
+@app.post('/vuln/command')
+def vulnerable_command():
+    data = request.get_json(silent=True) or {}
+    command = data.get('command', 'whoami')
+    result = run_command_insecure(command)
+    if any(marker in command for marker in ['&&', ';', '|', '`']):
+        push_alert('REMOTE_CODE_EXECUTION', '/vuln/command', command)
+    return jsonify({'command': command, 'result': result, 'secure': False})
+
+
+@app.post('/secure/command')
+def secure_command():
+    data = request.get_json(silent=True) or {}
+    command = data.get('command', 'whoami')
+    result = run_command_secure(command)
+    if 'error' in result:
+        push_alert('REMOTE_CODE_EXECUTION', '/secure/command', command, source='secure-guard')
+        return jsonify(result), 403
+    return jsonify({'command': command, 'result': result, 'secure': True})
 
 
 @app.get('/vuln/login')
@@ -227,6 +392,27 @@ def app_fetch():
     if app.config['SECURE_MODE']:
         return secure_fetch()
     return vulnerable_fetch()
+
+
+@app.route('/app/document/<int:document_id>', methods=['GET'])
+def app_document(document_id):
+    if app.config['SECURE_MODE']:
+        return secure_document(document_id)
+    return vulnerable_document(document_id)
+
+
+@app.route('/app/settings/notifications', methods=['POST'])
+def app_notifications():
+    if app.config['SECURE_MODE']:
+        return secure_notifications()
+    return vulnerable_notifications()
+
+
+@app.route('/app/command', methods=['POST'])
+def app_command():
+    if app.config['SECURE_MODE']:
+        return secure_command()
+    return vulnerable_command()
 
 
 if __name__ == '__main__':

@@ -15,10 +15,28 @@ def seed_db():
             password TEXT NOT NULL,
             role TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS app_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            csrf_token TEXT NOT NULL,
+            notifications_enabled INTEGER NOT NULL
+        );
         DELETE FROM users;
+        DELETE FROM documents;
+        DELETE FROM app_state;
         INSERT INTO users(username, password, role) VALUES
             ('alice', 'alice123', 'user'),
             ('admin', 'super-secret', 'admin');
+        INSERT INTO documents(owner_id, title, body) VALUES
+            (1, 'Alice incident notes', 'Confidential case notes for alice'),
+            (2, 'Admin security memo', 'Privileged memo for admin only');
+        INSERT INTO app_state(id, csrf_token, notifications_enabled) VALUES
+            (1, 'csrf-demo-token', 1);
         '''
     )
     conn.commit()

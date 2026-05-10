@@ -5,13 +5,14 @@ from .auth import require_api_key
 from .extensions import db
 from .models import ActionApproval, Incident, ResponseAction
 from .services.audit import record_event
-from .services.playbook_engine import build_playbook_actions
+from .services.playbook_engine import build_playbook_actions, execute_playbook_on_lab_app
 
 playbooks_api = Blueprint("playbooks_api", __name__)
 
 
 def _execute_playbook_for_incident(incident):
-    actions = build_playbook_actions(incident)
+    execution_summary = execute_playbook_on_lab_app(incident)
+    actions = build_playbook_actions(incident, execution_summary)
     created_actions = []
     for action in actions:
         record = ResponseAction(
@@ -23,7 +24,7 @@ def _execute_playbook_for_incident(incident):
         db.session.add(record)
         created_actions.append(record)
 
-    incident.status = "closed"
+    incident.status = "mitigated" if execution_summary["success"] else "in_review"
     record_event(
         "playbook_executed",
         "incident",
@@ -31,10 +32,11 @@ def _execute_playbook_for_incident(incident):
         {
             "actions": [action["action_type"] for action in actions],
             "result_status": incident.status,
+            "execution_summary": execution_summary,
         },
     )
 
-    return created_actions
+    return created_actions, execution_summary
 
 
 @playbooks_api.post("/execute/<int:incident_id>")
@@ -106,13 +108,14 @@ def execute_playbook(incident_id):
             }
         ), 202
 
-    created_actions = _execute_playbook_for_incident(incident)
+    created_actions, execution_summary = _execute_playbook_for_incident(incident)
     db.session.commit()
 
     return jsonify(
         {
             "incident_id": incident.id,
             "incident_status": incident.status,
+            "execution_summary": execution_summary,
             "actions": [
                 {
                     "id": action.id,

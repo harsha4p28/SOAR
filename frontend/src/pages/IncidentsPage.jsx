@@ -26,6 +26,7 @@ function IncidentsPage() {
   const [report, setReport] = useState(null);
   const [remediation, setRemediation] = useState(null);
   const [approval, setApproval] = useState(null);
+  const [playbookResult, setPlaybookResult] = useState(null);
   const [noteText, setNoteText] = useState("");
 
   const filteredIncidents = incidents.filter((incident) => {
@@ -104,6 +105,7 @@ function IncidentsPage() {
 
       if (result && result.approval_required) {
         setApproval(result.approval || null);
+        setPlaybookResult(result);
         setStatus("Playbook execution requires approval and is pending.");
         await refreshIncidents();
         focusOutput("governance-approvals-output");
@@ -112,6 +114,7 @@ function IncidentsPage() {
 
       await refreshIncidents();
       await openCase(incidentId);
+      setPlaybookResult(result);
       focusOutput("incidents-report-output");
     } catch (error) {
       setStatus(error.message);
@@ -310,6 +313,25 @@ function IncidentsPage() {
             </div>
           )}
           <p>Selected Incident: {selectedIncidentId || "none"}</p>
+          {playbookResult && playbookResult.incident_id === selectedIncidentId && (
+            <div
+              style={{
+                marginBottom: "0.8rem",
+                padding: "0.8rem",
+                borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <strong>Latest playbook run</strong>
+              <div>Status: {playbookResult.incident_status || "pending"}</div>
+              <div>Target: {playbookResult.execution_summary?.target || "n/a"}</div>
+              <div>
+                Remediation: {playbookResult.execution_summary?.remediation?.status_code || "n/a"}
+                {playbookResult.execution_summary?.verification?.verified ? " | verified" : " | not verified"}
+              </div>
+            </div>
+          )}
           <div className="case-controls inline-actions">
             <button onClick={addCaseNote}>Add Note</button>
             <button onClick={() => moveStatus("in_review")}>Move to In Review</button>
